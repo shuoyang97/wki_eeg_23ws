@@ -4,51 +4,20 @@ import mne
 from scipy import signal as sig
 from scipy.fft import fft
 
-def pre_processing(data, channels, fs):
+def pre_processing(data, channels, fs, interval):
 
-    montage_feature = []
+    features = []
     _montage, _montage_data, _is_missing = get_6montages(channels, data)
+    segmented_montage_data = data_segmentation(_montage_data, fs, interval)
+    segmented_montage_data = np.asarray(segmented_montage_data)
+    transposed_segmented_montage_data = np.transpose(segmented_montage_data, (1, 0, 2))
+    
+    for element in transposed_segmented_montage_data:
 
-    for j, _ in enumerate(_montage):
+        element_feature_flattened = band_filter(element)
+        features.append(element_feature_flattened, fs)
 
-        signal = _montage_data[j]
-        seg_feature = []
-
-        for i in range(len[_montage_data[j]]):
-
-            signal_filter = mne.filter.filter_data(data=signal[i], sfreq=fs, l_freq=0.5, h_freq=70.0, n_jobs=2, verbose=False)
-            
-            # 进行傅里叶变换
-            fft_result = fft(signal_filter)
-            fft_freqs = np.fft.fftfreq(len(fft_result), 1/fs)
-
-            # 定义频率带范围
-            delta_band = (0.5, 4)
-            theta_band = (4, 8)
-            alpha_band = (8, 13)
-            beta_band = (13, 30)
-            gamma_band = (30, 40)
-
-            # 在频率域上分离不同频率带的信号
-            delta_power = np.sum(np.abs(fft_result[(fft_freqs >= delta_band[0]) & (fft_freqs <= delta_band[1])])) ** 2
-            theta_power = np.sum(np.abs(fft_result[(fft_freqs >= theta_band[0]) & (fft_freqs <= theta_band[1])])) ** 2
-            alpha_power = np.sum(np.abs(fft_result[(fft_freqs >= alpha_band[0]) & (fft_freqs <= alpha_band[1])])) ** 2
-            beta_power = np.sum(np.abs(fft_result[(fft_freqs >= beta_band[0]) & (fft_freqs <= beta_band[1])])) ** 2
-            gamma_power = np.sum(np.abs(fft_result[(fft_freqs >= gamma_band[0]) & (fft_freqs <= gamma_band[1])])) ** 2
-
-            # 计算Mean Spectrum Amplitude
-            delta_mean_amp = np.mean(np.abs(fft_result[(fft_freqs >= delta_band[0]) & (fft_freqs <= delta_band[1])]))
-            theta_mean_amp = np.mean(np.abs(fft_result[(fft_freqs >= theta_band[0]) & (fft_freqs <= theta_band[1])]))
-            alpha_mean_amp = np.mean(np.abs(fft_result[(fft_freqs >= alpha_band[0]) & (fft_freqs <= alpha_band[1])]))
-            beta_mean_amp = np.mean(np.abs(fft_result[(fft_freqs >= beta_band[0]) & (fft_freqs <= beta_band[1])]))
-            gamma_mean_amp = np.mean(np.abs(fft_result[(fft_freqs >= gamma_band[0]) & (fft_freqs <= gamma_band[1])]))
-            
-            seg_feature.append([delta_power, theta_power, alpha_power, beta_power, gamma_power, delta_mean_amp, theta_mean_amp, alpha_mean_amp, beta_mean_amp, gamma_mean_amp])
-
-        montage_feature = np.array(seg_feature)
-        montage_feature_flattened = montage_feature.flatten()
-
-    return montage_feature_flattened
+    return features
 
 
 def data_segmentation(_montage_data, fs, interval):
@@ -106,5 +75,42 @@ def re_label(labels, num_seg, interval):
     return new_label
 
 
+def band_filter(element, fs):
+     
+        feature = []
+        for item in element:
 
+            signal_filter = mne.filter.filter_data(data=item, sfreq=fs, l_freq=0.5, h_freq=50.0, n_jobs=2, verbose=False)
+            
+            # 进行傅里叶变换
+            fft_result = fft(signal_filter)
+            fft_freqs = np.fft.fftfreq(len(fft_result), 1/fs)
+
+            # 定义频率带范围
+            delta_band = (0.5, 4)
+            theta_band = (4, 8)
+            alpha_band = (8, 13)
+            beta_band = (13, 30)
+            gamma_band = (30, 40)
+
+            # 在频率域上分离不同频率带的信号
+            delta_power = np.sum(np.abs(fft_result[(fft_freqs >= delta_band[0]) & (fft_freqs <= delta_band[1])])) ** 2
+            theta_power = np.sum(np.abs(fft_result[(fft_freqs >= theta_band[0]) & (fft_freqs <= theta_band[1])])) ** 2
+            alpha_power = np.sum(np.abs(fft_result[(fft_freqs >= alpha_band[0]) & (fft_freqs <= alpha_band[1])])) ** 2
+            beta_power = np.sum(np.abs(fft_result[(fft_freqs >= beta_band[0]) & (fft_freqs <= beta_band[1])])) ** 2
+            gamma_power = np.sum(np.abs(fft_result[(fft_freqs >= gamma_band[0]) & (fft_freqs <= gamma_band[1])])) ** 2
+
+            # 计算Mean Spectrum Amplitude
+            delta_mean_amp = np.mean(np.abs(fft_result[(fft_freqs >= delta_band[0]) & (fft_freqs <= delta_band[1])]))
+            theta_mean_amp = np.mean(np.abs(fft_result[(fft_freqs >= theta_band[0]) & (fft_freqs <= theta_band[1])]))
+            alpha_mean_amp = np.mean(np.abs(fft_result[(fft_freqs >= alpha_band[0]) & (fft_freqs <= alpha_band[1])]))
+            beta_mean_amp = np.mean(np.abs(fft_result[(fft_freqs >= beta_band[0]) & (fft_freqs <= beta_band[1])]))
+            gamma_mean_amp = np.mean(np.abs(fft_result[(fft_freqs >= gamma_band[0]) & (fft_freqs <= gamma_band[1])]))
+            
+            feature.append([delta_power, theta_power, alpha_power, beta_power, gamma_power, delta_mean_amp, theta_mean_amp, alpha_mean_amp, beta_mean_amp, gamma_mean_amp])
+
+        element_feature = np.array(feature)
+        element_feature_flattened = element_feature.flatten()
+
+        return element_feature_flattened
         
